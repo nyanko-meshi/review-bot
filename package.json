@@ -6,7 +6,8 @@
     "check-reviews": "node scripts/checkReviews.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/supabase-js": "^2.39.0",
+    "ws": "^8.21.0"
   },
   "engines": {
     "node": ">=18"
