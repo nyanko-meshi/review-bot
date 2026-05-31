@@ -81,7 +81,7 @@ async function main() {
       // 新規レビュー → 通知対象ユーザーを取得
       const { data: watchers } = await supabase
         .from('watched_stores')
-        .select('users(line_user_id)')
+        .select('users!user_id(line_user_id)')
         .eq('place_id', place.place_id);
 
       const lineUserIds = watchers?.map(w => w.users.line_user_id) ?? [];
