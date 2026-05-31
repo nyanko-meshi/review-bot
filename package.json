@@ -1,0 +1,14 @@
+{
+  "name": "review-bot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "check-reviews": "node scripts/checkReviews.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
