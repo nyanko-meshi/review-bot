@@ -2,6 +2,7 @@
   "name": "review-bot",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "check-reviews": "node scripts/checkReviews.js"
   },
