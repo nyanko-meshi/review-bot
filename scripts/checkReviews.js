@@ -14,7 +14,7 @@ function reviewHash(placeId, review) {
 }
 
 async function fetchReviews(placeId) {
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=reviews&language=ja&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=reviews&language=ja&key=${process.env.GOOGLE_PLACES_API_KEY}&sort_reviews=newest`;
   const res = await fetch(url);
   const data = await res.json();
   return data.result?.reviews ?? [];
