@@ -2,27 +2,24 @@ name: Check New Reviews
 
 on:
   schedule:
-      - cron: '0 * * * *'  # 毎時0分に実行
-        workflow_dispatch:  # 手動実行も可能
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
-        jobs:
-          check:
-              runs-on: ubuntu-latest
-                  steps:
-                        - uses: actions/checkout@v4
-
-                              - uses: actions/setup-node@v4
-                                      with:
-                                                node-version: '22'
-
-                                                      - name: Install dependencies
-                                                              run: npm install
-
-                                                                    - name: Run review check
-                                                                            env:
-                                                                                      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-                                                                                                SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-                                                                                                          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
-                                                                                                                    LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
-                                                                                                                              DEBUG_NOTIFY: 'true'
-                                                                                                                                      run: node scripts/checkReviews.js
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install
+      - name: Run review check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          DEBUG_NOTIFY: 'true'
+        run: node scripts/checkReviews.js
