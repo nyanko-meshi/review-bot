@@ -1,133 +1,133 @@
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
-// SUPABASE_URLの末尾スラッシュを除去
 const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-console.log('SUPABASE_URL設定確認:', supabaseUrl ? `${supabaseUrl.substring(0, 60)}...` : '未設定');
-console.log('SUPABASE_KEY設定確認:', supabaseKey ? '設定済み' : '未設定');
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 function reviewHash(placeId, review) {
-        return crypto
-          .createHash('sha256')
-          .update(`${placeId}:${review.author_name}:${review.time}`)
-          .digest('hex');
+          return crypto
+            .createHash('sha256')
+            .update(`${placeId}:${review.author_name}:${review.time}`)
+            .digest('hex');
 }
 
 async function fetchReviews(placeId) {
-        const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=reviews&language=ja&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        return data.result?.reviews ?? [];
+          const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=reviews&language=ja&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          return data.result?.reviews ?? [];
 }
 
 async function sendLineNotification(userId, placeName, mapsUrl) {
-        await fetch('https://api.line.me/v2/bot/message/push', {
-                  method: 'POST',
-                  headers: {
-                              'Content-Type': 'application/json',
-                              Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
-                  },
-                  body: JSON.stringify({
-                              to: userId,
-                              messages: [
-                                    {
-                                                    type: 'text',
-                                                    text: `📢 新しい口コミが投稿されました！\n\n📍 ${placeName}\n\n👇 口コミを見る\n${mapsUrl}`,
-                                    },
-                                          ],
-                  }),
-        });
+          const res = await fetch('https://api.line.me/v2/bot/message/push', {
+                      method: 'POST',
+                      headers: {
+                                    'Content-Type': 'application/json',
+                                    Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+                      },
+                      body: JSON.stringify({
+                                    to: userId,
+                                    messages: [
+                                            {
+                                                              type: 'text',
+                                                              text: `📢 新しい口コミが投稿されました！\n\n📍 ${placeName}\n\n👇 口コミを見る\n${mapsUrl}`,
+                                            },
+                                                  ],
+                      }),
+          });
+          if (!res.ok) {
+                      const body = await res.text();
+                      throw new Error(`LINE API エラー: ${res.status} ${body}`);
+          }
 }
 
 async function main() {
-        console.log('口コミチェック開始:', new Date().toISOString());
+          console.log('口コミチェック開始:', new Date().toISOString());
 
-  console.log('watched_storesを取得中...');
-        const { data: stores, error } = await supabase
-          .from('watched_stores')
-          .select('place_id, place_name, maps_url');
+  const { data: stores, error } = await supabase
+            .from('watched_stores')
+            .select('place_id, place_name, maps_url');
 
   if (error) {
-            console.error('watched_stores取得エラー:', JSON.stringify(error));
-            throw error;
+              console.error('watched_stores取得エラー:', JSON.stringify(error));
+              throw error;
   }
 
   console.log(`店舗数: ${stores?.length ?? 0}`);
 
   const uniquePlaces = Object.values(
-            Object.fromEntries(stores.map(s => [s.place_id, s]))
-          );
+              Object.fromEntries(stores.map(s => [s.place_id, s]))
+            );
 
   for (const place of uniquePlaces) {
-            console.log(`チェック中: ${place.place_name}`);
-            let reviews;
-            try {
-                        reviews = await fetchReviews(place.place_id);
-            } catch (e) {
-                        console.error(`レビュー取得失敗 (${place.place_name}):`, e);
-                        continue;
-            }
-
-          for (const review of reviews) {
-                      const hash = reviewHash(place.place_id, review);
-
-              const { data: existing } = await supabase
-                        .from('notified_reviews')
-                        .select('id')
-                        .eq('place_id', place.place_id)
-                        .eq('review_hash', hash)
-                        .maybeSingle();
-
-              if (existing) continue;
-
-              const { data: watchers, error: watchersError } = await supabase
-                        .from('watched_stores')
-                        .select('user_id')
-                        .eq('place_id', place.place_id);
-
-              if (watchersError) {
-                            console.error('watchersクエリエラー:', JSON.stringify(watchersError));
+              console.log(`チェック中: ${place.place_name}`);
+              let reviews;
+              try {
+                            reviews = await fetchReviews(place.place_id);
+              } catch (e) {
+                            console.error(`レビュー取得失敗 (${place.place_name}):`, e);
                             continue;
               }
 
-              const userIds = watchers?.map(w => w.user_id) ?? [];
+            for (const review of reviews) {
+                          const hash = reviewHash(place.place_id, review);
 
-              const lineUserIds = [];
-                      for (const userId of userIds) {
-                                    const { data: user } = await supabase
-                                      .from('users')
-                                      .select('line_user_id')
-                                      .eq('id', userId)
-                                      .maybeSingle();
-                                    if (user?.line_user_id) lineUserIds.push(user.line_user_id);
-                      }
+                const { data: existing } = await supabase
+                            .from('notified_reviews')
+                            .select('id')
+                            .eq('place_id', place.place_id)
+                            .eq('review_hash', hash)
+                            .maybeSingle();
 
-              console.log(`新規レビュー検出: ${place.place_name} → ${lineUserIds.length}人に通知`);
+                if (existing) continue;
 
-              for (const lineUserId of lineUserIds) {
-                            try {
-                                            await sendLineNotification(lineUserId, place.place_name, place.maps_url);
-                            } catch (e) {
-                                            console.error(`通知失敗 (${lineUserId}):`, e);
-                            }
-              }
+                const { data: watchers, error: watchersError } = await supabase
+                            .from('watched_stores')
+                            .select('user_id')
+                            .eq('place_id', place.place_id);
 
-              await supabase
-                        .from('notified_reviews')
-                        .insert({ place_id: place.place_id, review_hash: hash });
-          }
+                if (watchersError) {
+                                console.error('watchersクエリエラー:', JSON.stringify(watchersError));
+                                continue;
+                }
 
-          await new Promise(r => setTimeout(r, 200));
+                const userIds = watchers?.map(w => w.user_id) ?? [];
+
+                const lineUserIds = [];
+                          for (const userId of userIds) {
+                                          const { data: user } = await supabase
+                                            .from('users')
+                                            .select('line_user_id')
+                                            .eq('id', userId)
+                                            .maybeSingle();
+                                          if (user?.line_user_id) lineUserIds.push(user.line_user_id);
+                          }
+
+                console.log(`新規レビュー検出: ${place.place_name} → ${lineUserIds.length}人に通知`);
+
+                for (const lineUserId of lineUserIds) {
+                                try {
+                                                  await sendLineNotification(lineUserId, place.place_name, place.maps_url);
+                                                  console.log(`通知成功: ${lineUserId}`);
+                                } catch (e) {
+                                                  console.error(`通知失敗 (${lineUserId}):`, e.message);
+                                }
+                }
+
+                await supabase
+                            .from('notified_reviews')
+                            .insert({ place_id: place.place_id, review_hash: hash });
+            }
+
+            await new Promise(r => setTimeout(r, 200));
   }
 
   console.log('口コミチェック完了:', new Date().toISOString());
 }
 
 main().catch(e => {
-        console.error('致命的エラー:', e);
-        process.exit(1);
+          console.error('致命的エラー:', e);
+          process.exit(1);
 });
